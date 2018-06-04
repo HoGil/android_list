@@ -12,7 +12,9 @@
         android:layout_marginLeft="37dp"
         android:layout_marginStart="37dp"
         android:layout_marginTop="44dp"
-        android:text="Magnitude" />
+        android:text="Magnitude"
+        android:textColor="@android:color/black"
+        android:textSize="24sp" />
 
     <TextView
         android:id="@+id/location_view"
@@ -24,7 +26,8 @@
         android:layout_marginLeft="240dp"
         android:layout_marginStart="100dp"
         android:layout_marginTop="44dp"
-        android:text="Location" />
+        android:text="Location"
+        android:textSize="18sp" />
 
     <TextView
         android:id="@+id/date_view"
@@ -33,10 +36,12 @@
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
-        android:layout_marginLeft="320dp"
+        android:layout_marginLeft="280dp"
+        android:layout_marginRight="50dp"
         android:layout_marginStart="320dp"
         android:layout_marginTop="44dp"
-        android:text="Date" />
+        android:text="Date"
+        android:textSize="18sp" />
 
 
 </RelativeLayout>

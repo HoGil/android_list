@@ -42,7 +42,7 @@ public class EarthquakeActivity extends AppCompatActivity {
         earthquakes.add("Paris");*/
 
         // create a fake list of earthquake objects
-        Earthquake sanfran = new Earthquake("7.2", "San Fransisco", "Feb 2, 2016");
+        /*Earthquake sanfran = new Earthquake("7.2", "San Fransisco", "Feb 2, 2016");
         Earthquake london = new Earthquake("6.1", "London", "Feb 2, 2016");
         Earthquake tokyo = new Earthquake("3.9", "Tokyo", "Feb 2, 2016");
         Earthquake mexcity = new Earthquake("5.4", "Mexico City", "Feb 2, 2016");
@@ -60,7 +60,10 @@ public class EarthquakeActivity extends AppCompatActivity {
         earthquakes.add(moscow);
         earthquakes.add(riodeja);
         earthquakes.add(paris);
-        earthquakes.add(geneva);
+        earthquakes.add(geneva);*/
+
+        // create a fake list of earthquakes using the Query static class
+        ArrayList<Earthquake> earthquakes = Query.extractEarthquakes();
 
         // Find a reference to the {@link ListView} in the layout
         ListView earthquakeListView = (ListView) findViewById(R.id.listview_eq);
