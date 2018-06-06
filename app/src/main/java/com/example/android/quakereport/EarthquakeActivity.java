@@ -15,64 +15,213 @@
  */
 package com.example.android.quakereport;
 
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
+import android.widget.TextView;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 
 public class EarthquakeActivity extends AppCompatActivity {
 
     public static final String LOG_TAG = EarthquakeActivity.class.getName();
 
+    private static final String USGS_REQUEST_URL =
+            "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2012-01-01&endtime=2012-12-01&minmagnitude=6";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.earthquake_activity);
 
-        // Create a fake list of earthquake locations.
-       /* ArrayList<String> earthquakes = new ArrayList<>();
-        earthquakes.add("San Francisco");
-        earthquakes.add("London");
-        earthquakes.add("Tokyo");
-        earthquakes.add("Mexico City");
-        earthquakes.add("Moscow");
-        earthquakes.add("Rio de Janeiro");
-        earthquakes.add("Paris");*/
+        // start asynctask thread
+        EarthquakeTask task = new EarthquakeTask();
+        task.execute();
 
-        // create a fake list of earthquake objects
-        /*Earthquake sanfran = new Earthquake("7.2", "San Fransisco", "Feb 2, 2016");
-        Earthquake london = new Earthquake("6.1", "London", "Feb 2, 2016");
-        Earthquake tokyo = new Earthquake("3.9", "Tokyo", "Feb 2, 2016");
-        Earthquake mexcity = new Earthquake("5.4", "Mexico City", "Feb 2, 2016");
-        Earthquake moscow = new Earthquake("2.8", "Moscow", "Feb 2, 2016");
-        Earthquake riodeja = new Earthquake("4.9", "Rio De Janeiro", "Feb 2, 2016");
-        Earthquake paris = new Earthquake("1.6", "Paris", "Feb 2, 2016");
-        Earthquake geneva = new Earthquake("6.6", "Geneva", "Feb 2, 2016");
-
-        // put those objects in an arraylist
-        ArrayList<Earthquake> earthquakes = new ArrayList<>();
-        earthquakes.add(sanfran);
-        earthquakes.add(london);
-        earthquakes.add(tokyo);
-        earthquakes.add(mexcity);
-        earthquakes.add(moscow);
-        earthquakes.add(riodeja);
-        earthquakes.add(paris);
-        earthquakes.add(geneva);*/
-
-        // create a fake list of earthquakes using the Query static class
-        ArrayList<Earthquake> earthquakes = Query.extractEarthquakes();
-
-        // Find a reference to the {@link ListView} in the layout
-        ListView earthquakeListView = (ListView) findViewById(R.id.listview_eq);
-
-        // Create a new {@link ArrayAdapter} of earthquakes
-        EqArrayAdapter adapter = new EqArrayAdapter(this, earthquakes);
-
-        // Set the adapter on the {@link ListView}
-        // so the list can be populated in the user interface
-        earthquakeListView.setAdapter(adapter);
     }
+
+    private void updateUi(Earthquake earthquake) {
+        // display the earthquake magnitutde
+        TextView magTextView = (TextView)findViewById(R.id.magnitude_view);
+        magTextView.setText(earthquake.getMagnitute());
+
+        // display the location
+        TextView locTextView = (TextView)findViewById(R.id.location_view);
+        locTextView.setText(earthquake.getCity());
+
+        // display the time or date
+        TextView timeView = (TextView)findViewById(R.id.date_view);
+        timeView.setText(earthquake.getEventDate());
+    }
+
+
+
+    // create the task
+    private class EarthquakeTask extends AsyncTask<URL, Void, Earthquake> {
+
+        @Override
+        protected Earthquake doInBackground(URL... urls) {
+            // create URL object
+            URL url = createUrl(USGS_REQUEST_URL);
+
+            // perform HTTP request to the URL and receive a JSON response back
+            String jsonResponse = "";
+            try {
+                jsonResponse = makeHttpRequest(url);
+            } catch (IOException e) {
+                // TODO
+            }
+
+            // extract relevant fields from JSON response and create an earthquake object
+            Earthquake eq = extractFeatureFromJson(jsonResponse);
+
+            return eq;
+        }
+
+
+        //update the screen with the given earthquake (ie the result of the async)
+        @Override
+        protected void onPostExecute(Earthquake earthquake) {
+            if (earthquake == null) {
+                return;
+            }
+
+            updateUi(earthquake);
+        }
+
+        // custom method : returns a new URL object from the given string URL
+        private URL createUrl(String stringUrl) {
+            URL url = null;
+            try {
+                url = new URL(stringUrl);
+            } catch (MalformedURLException e) {
+                Log.e("EQ: URL exception", "URL Exc", e);
+                return null;
+            }
+
+            return url;
+        }
+
+        // the actual HTTP request method
+        private String makeHttpRequest(URL url) throws IOException {
+            String jsonResponse = "";
+            HttpURLConnection urlConnection = null;
+            InputStream inputStream = null;
+
+            try {
+
+                urlConnection = (HttpURLConnection)url.openConnection();
+                urlConnection.setRequestMethod("GET");
+                urlConnection.setReadTimeout(10000);
+                urlConnection.setConnectTimeout(15000);
+                urlConnection.connect();
+                inputStream = urlConnection.getInputStream();
+                jsonResponse = readFromStream(inputStream);
+
+            } catch (IOException e) {
+
+            } finally {
+                if(urlConnection != null) {
+                    urlConnection.disconnect();
+                }
+                if (inputStream != null) {
+                    inputStream.close();
+                }
+            }
+            return jsonResponse;
+        }
+
+
+        // convert the inputstream into a String which contains the whole JSON
+        // response from the server.
+        private String readFromStream(InputStream inputStream) throws IOException {
+            StringBuilder output = new StringBuilder();
+            if (inputStream != null) {
+                InputStreamReader inputStreamReader = new InputStreamReader(inputStream, Charset.forName("UTF-8"));
+                BufferedReader reader = new BufferedReader(inputStreamReader);
+                String line = reader.readLine();
+                while (line != null) {
+                    output.append(line);
+                    line = reader.readLine();
+                }
+            }
+            return output.toString();
+        }
+
+
+        // return an eq object by parsing out information
+        // about the first earthquake from the input earthquakeJSON string
+        private Earthquake extractFeatureFromJson(String earthquakeJSON) {
+            try {
+                JSONObject baseJsonResponse = new JSONObject(earthquakeJSON);
+                JSONArray featureArray = baseJsonResponse.getJSONArray("features");
+
+                // if there are results in the features array
+                if (featureArray.length() > 0) {
+                    // extract out the first feature (eg an eq)
+                    JSONObject firstFeature = featureArray.getJSONObject(0);
+                    JSONObject properties = firstFeature.getJSONObject("properties");
+
+                    // extract out the title, time and location
+                    String mag = properties.getString("mag");
+                    String location = properties.getString("place");
+                    String date = properties.getString("time");
+
+                    return new Earthquake(mag, location, date);
+                }
+
+            } catch (JSONException e) {
+                // TODO
+            }
+            return null;
+        }
+
+    }
+
+
+
+
+
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
